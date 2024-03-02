@@ -81,7 +81,7 @@ module.exports = function (RED) {
                                 node.channel = node.client[config.method](msg.payload, metadata);
                                 node.channel.on("data", function (data) {
                                     msg.payload = data;
-                                    msg.metadata = metadata.getMap(); // Pass metadata along with the response payload
+                                    msg.metadata = metadata; // Pass metadata along with the response payload
                                     node.send(msg);
                                 });
 
@@ -93,8 +93,8 @@ module.exports = function (RED) {
                             } else {
                                 node.client[config.method](msg.payload, metadata, function(error, data) {
                                     msg.payload = data;
+                                    msg.metadata = metadata; // Pass metadata along with the response payload
                                     msg.error = error;
-                                    msg.metadata = metadata.getMap(); // Pass metadata along with the response payload
                                     node.send(msg);
                                 })
                             }
