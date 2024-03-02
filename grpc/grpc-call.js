@@ -74,14 +74,32 @@ module.exports = function (RED) {
                                 if (proto[config.service].service[config.method].responseStream) {
                                     node.channel = node.client[config.method](msg.payload, metadata);
                                     let http2Content = ''; // Accumulate HTTP/2 content
+                                    let headers = {}; // Store response headers
+                                    let trailers = {}; // Store response trailers
+                                    let statusCode = null; // Store response status code
+                                    
+                                    // Event: Data
                                     node.channel.on("data", function (data) {
                                         http2Content += data; // Accumulate received data
                                         // If you want to send each chunk of data separately, send it here
                                     });
 
+                                    // Event: Headers
+                                    node.channel.on("status", function (status) {
+                                        statusCode = status.code; // Store status code
+                                        headers = status.metadata.getMap(); // Store response headers
+                                    });
+
+                                    // Event: Trailers
                                     node.channel.on("end", function () {
                                         // HTTP/2 content received completely, send out the response
-                                        msg.payload = http2Content;
+                                        const response = {
+                                            statusCode: statusCode,
+                                            headers: headers,
+                                            trailers: trailers,
+                                            body: http2Content
+                                        };
+                                        msg.payload = response;
                                         msg.metadata = metadata; // Pass metadata along with the response payload
                                         node.send(msg);
                                     });
@@ -92,8 +110,14 @@ module.exports = function (RED) {
                                     });
 
                                 } else {
-                                    node.client[config.method](msg.payload, metadata, function(error, data) {
-                                        msg.payload = data;
+                                    node.client[config.method](msg.payload, metadata, function(error, data, responseMetadata) {
+                                        const response = {
+                                            statusCode: responseMetadata.status.code,
+                                            headers: responseMetadata.metadata.getMap(),
+                                            trailers: responseMetadata.trailers,
+                                            body: data
+                                        };
+                                        msg.payload = response;
                                         msg.metadata = metadata; // Pass metadata along with the response payload
                                         msg.error = error;
                                         node.send(msg);
